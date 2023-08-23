@@ -21,6 +21,9 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
     - name: Setup Java
       id: java
       uses: actions/setup-java@v3
@@ -38,6 +41,11 @@ runs:
     - uses: stCarolas/setup-maven@v4.5
       with:
         maven-version: ${{ inputs.maven_version }}
+
+    - name: Setup eMass file
+      shell: bash
+      run: |
+        echo '{"systemID": 207,"systemName": "VA Profile","systemOwnerName": "Fred Spence","systemOwnerEmail": "fred.spence@va.gov"}' > ${{ env.GITHUB_WORKSPACE }}/.github/emass.json
 
     - name: Run Code Scanning
       uses: department-of-veterans-affairs/codeql-tools/codeql-analysis@main
