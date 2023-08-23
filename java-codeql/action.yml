@@ -1,0 +1,49 @@
+name: CodeQL
+description: GitHub Advanced Security Code Scanning with CodeQL
+inputs:
+  path:
+    description: The path to the working directory
+    required: false
+    default: '.'
+  upload_db:
+    description: Upload the CodeQL database to GitHub
+    required: false
+    default: 'false'
+  java_version:
+    description: Version of Java to use
+    required: true
+    default: '17'
+  maven_version:
+    description: Version of Maven to use
+    required: true
+    default: '3.8.6'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Java
+      id: java
+      uses: actions/setup-java@v3
+      with:
+        overwrite-settings: false
+        java-version: ${{ inputs.java_version }}
+        distribution: corretto
+
+    - uses: actions/cache@v3
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-jdk${{ inputs.java_version }}-corretto-maven${{ inputs.maven_version }}-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-jdk${{ inputs.java_version }}-corretto-maven${{ inputs.maven_version }}-
+
+    - uses: stCarolas/setup-maven@v4.5
+      with:
+        maven-version: ${{ inputs.maven_version }}
+
+    - name: Run Code Scanning
+      uses: department-of-veterans-affairs/codeql-tools/codeql-analysis@main
+      working-directory: ${{ inputs.path }}
+      env:
+        MAVEN_OPTS: "-Dmaven.wagon.http.ssl.insecure=true"
+      with:
+        language: java
+        upload_db: ${{ inputs.upload_db }}
