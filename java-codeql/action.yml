@@ -45,7 +45,7 @@ runs:
     - name: Setup eMass file
       shell: bash
       run: |
-        echo '{"systemID": 207,"systemName": "VA Profile","systemOwnerName": "Fred Spence","systemOwnerEmail": "fred.spence@va.gov"}' > ${{ env.GITHUB_WORKSPACE }}/.github/emass.json
+        echo '{"systemID": 207,"systemName": "VA Profile","systemOwnerName": "Fred Spence","systemOwnerEmail": "fred.spence@va.gov"}' > .github/emass.json
 
     - name: Run Code Scanning
       uses: department-of-veterans-affairs/codeql-tools/codeql-analysis@main
