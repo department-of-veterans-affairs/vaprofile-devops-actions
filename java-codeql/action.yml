@@ -41,15 +41,7 @@ runs:
     - uses: stCarolas/setup-maven@v4.5
       with:
         maven-version: ${{ inputs.maven_version }}
-
-    - name: Setup eMass file
-      shell: bash
-      run: |
-        pwd
-        echo '{"systemID": 207,"systemName": "VA Profile","systemOwnerName": "Fred Spence","systemOwnerEmail": "fred.spence@va.gov"}' > .github/emass.json
-        ls
-        ls .github
-
+        
     - name: Run Code Scanning
       uses: department-of-veterans-affairs/codeql-tools/codeql-analysis@main
       env:
