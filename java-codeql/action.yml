@@ -32,6 +32,12 @@ runs:
         java-version: ${{ inputs.java_version }}
         distribution: corretto
 
+    # Replace the default Java truststore with one that contains the VA CA certs
+    - name: Setup Java Truststore
+      shell: bash
+      run: cp -f /etc/ssl/cacerts ${{ steps.java.outputs.path }}/lib/security/cacerts
+        
+
     - uses: actions/cache@v3
       with:
         path: ~/.m2/repository
@@ -45,7 +51,7 @@ runs:
     - name: Run Code Scanning
       uses: department-of-veterans-affairs/codeql-tools/codeql-analysis@main
       env:
-        MAVEN_OPTS: "-Dmaven.wagon.http.ssl.insecure=true"
+        #MAVEN_OPTS: "-Dmaven.wagon.http.ssl.insecure=true"
       with:
         language: java
         upload_db: ${{ inputs.upload_db }}
