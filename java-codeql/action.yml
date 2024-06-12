@@ -16,7 +16,7 @@ inputs:
   maven_version:
     description: Version of Maven to use
     required: true
-    default: '3.8.6'
+    default: '3.9.7'
 
 runs:
   using: composite
