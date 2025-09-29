@@ -48,9 +48,16 @@ runs:
       with:
         maven-version: ${{ inputs.maven_version }}
         
-    - name: Run Code Scanning
+    - name: Run Code Scanning (Java)
       uses: department-of-veterans-affairs/codeql-tools/codeql-analysis@main
       with:
-        language: java,actions
+        language: java
+        upload_db: ${{ inputs.upload_db }}
+        path: ${{ inputs.path }}
+
+    - name: Run Code Scanning (Actions)
+      uses: department-of-veterans-affairs/codeql-tools/codeql-analysis@main
+      with:
+        language: actions
         upload_db: ${{ inputs.upload_db }}
         path: ${{ inputs.path }}
