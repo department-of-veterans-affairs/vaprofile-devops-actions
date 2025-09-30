@@ -61,3 +61,33 @@ runs:
         language: actions
         upload_db: ${{ inputs.upload_db }}
         path: ${{ inputs.path }}
+
+    # --- Dockerfile scan ---
+    - name: Lint Dockerfile
+      id: dockerfile-lint
+      uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: Dockerfile
+        format: json
+        output: ./hadolint-report.json
+
+    - name: Upload Dockerfile Lint Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: dockerfile-lint
+        path: ./hadolint-report.json
+
+    # --- PL/SQL scan ---
+    - name: Install sqlcheck
+      shell: bash
+      run: pip install sqlcheck
+
+    - name: Run sqlcheck on PL/SQL
+      shell: bash
+      run: sqlcheck --format json ./sql > ./sqlcheck-report.json || true
+
+    - name: Upload PL/SQL Lint Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: plsql-lint
+        path: ./sqlcheck-report.json
