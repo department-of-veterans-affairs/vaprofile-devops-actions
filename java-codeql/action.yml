@@ -4,7 +4,7 @@ inputs:
   languages:
     description: 'Languages to analyze (comma-separated or space-separated, optional)'
     required: false
-    default: ''
+    default: 'java,actions'
   build-mode:
     description: 'Build mode for CodeQL (optional, defaults to auto)'
     required: false
@@ -41,23 +41,26 @@ runs:
           echo "No CodeQL databases found at $DB_BASE"
           exit 1
         fi
-  
-        find "$DB_BASE" -name dbinfo.json | while read -r dbinfo; do
-          db_dir="$(dirname "$dbinfo")"
         
-          # Infer language from parent directory name
-          # e.g. codeql_databases/java/db-java -> java
-          language="$(basename "$(dirname "$db_dir")")"
+        # Normalize input languages: comma-separated or space-separated → space-separated
+        INPUT_LANGS="$(echo "${{ inputs.languages }}" | tr ',' ' ')"
         
+        for language in $INPUT_LANGS; do
+          db_dir="$DB_BASE/$language"
           output="${RUNNER_TEMP}/codeql-scan-results-${language}.csv"
-  
-        echo "Generating CSV for language: $language"
-        echo "Using database: $db_dir"
-  
+        
+          if [[ ! -d "$db_dir" ]]; then
+            echo "Skipping $language: database directory not found at $db_dir"
+            continue
+          fi
+        
+          echo "Generating CSV for language: $language"
+          echo "Using database: $db_dir"
+        
           "$CODEQL_BIN" database interpret-results \
-          "$db_dir" \
-          --format=csv \
-          --output="$output"
+            "$db_dir" \
+            --format=csv \
+            --output="$output"
         done
       env:
         RUNNER_TEMP: ${{ runner.temp }}
