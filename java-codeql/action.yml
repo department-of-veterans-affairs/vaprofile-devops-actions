@@ -31,22 +31,29 @@ runs:
     - name: Generate CodeQL Results CSV
       shell: bash
       run: |
-        # Support both comma and space separated input
-        normalized_langs=$(echo "${{ inputs.languages }}" | tr ',' ' ')
+        set -euo pipefail
         set -x
-        for language in $normalized_langs; do
-          database_path="$temp/codeql-scan-results-$language.csv"
-          database_dir="$database_base/$language"
-          echo "Generating CodeQL Results CSV for $language at $database_path"
-          if [[ ! -v codeql ]]; then
-            $(realpath $RUNNER_TOOL_CACHE/CodeQL/*/x64/codeql/codeql | head -n 1) database interpret-results "$database_dir" --format=csv --output="$database_path"
-          else
-            codeql database interpret-results "$database_dir" --format=csv --output="$database_path"
-          fi
+        
+        CODEQL_BIN="$(ls $RUNNER_TOOL_CACHE/CodeQL/*/x64/codeql/codeql | head -n 1)"
+        DB_BASE="${RUNNER_TEMP}/codeql_databases"
+        
+        if [[ ! -d "$DB_BASE" ]]; then
+          echo "No CodeQL databases found at $DB_BASE"
+          exit 1
+        fi
+        
+        for db_dir in "$DB_BASE"/*; do
+          language="$(basename "$db_dir")"
+          output="${RUNNER_TEMP}/codeql-scan-results-${language}.csv"
+        
+          echo "Generating CSV for language: $language"
+          "$CODEQL_BIN" database interpret-results \
+            "$db_dir" \
+            --format=csv \
+            --output="$output"
         done
       env:
-        temp: ${{ runner.temp }}
-        database_base: ${{ runner.temp }}/codeql_databases
+        RUNNER_TEMP: ${{ runner.temp }}
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
