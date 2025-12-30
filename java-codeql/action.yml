@@ -41,24 +41,23 @@ runs:
           echo "No CodeQL databases found at $DB_BASE"
           exit 1
         fi
+  
+        find "$DB_BASE" -name dbinfo.json | while read -r dbinfo; do
+          db_dir="$(dirname "$dbinfo")"
         
-        for db_dir in "$DB_BASE"/*; do
-          # Skip non-directories
-          [[ -d "$db_dir" ]] || continue
+          # Infer language from parent directory name
+          # e.g. codeql_databases/java/db-java -> java
+          language="$(basename "$(dirname "$db_dir")")"
         
-          # Skip non-CodeQL databases
-          if [[ ! -f "$db_dir/dbinfo.json" ]]; then
-            echo "Skipping non-CodeQL directory: $db_dir"
-            continue
-          fi
-          language="$(basename "$db_dir")"
           output="${RUNNER_TEMP}/codeql-scan-results-${language}.csv"
-        
-          echo "Generating CSV for language: $language"
+  
+        echo "Generating CSV for language: $language"
+        echo "Using database: $db_dir"
+  
           "$CODEQL_BIN" database interpret-results \
-            "$db_dir" \
-            --format=csv \
-            --output="$output"
+          "$db_dir" \
+          --format=csv \
+          --output="$output"
         done
       env:
         RUNNER_TEMP: ${{ runner.temp }}
