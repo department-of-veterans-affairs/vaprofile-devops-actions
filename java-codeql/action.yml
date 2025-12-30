@@ -29,7 +29,6 @@ runs:
       uses: github/codeql-action/analyze@v4
 
     - name: Generate CodeQL Results CSV
-      if: runner.os == 'Linux'
       shell: bash
       run: |
         # Support both comma and space separated input
@@ -49,9 +48,8 @@ runs:
         temp: ${{ runner.temp }}
         database_base: ${{ runner.temp }}/codeql_databases
 
-      - name: Upload Artifact
-        if: runner.os != 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: codeql-scan-results
-          path: ${{ runner.temp }}/codeql-scan-results-*.csv
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: codeql-scan-results
+        path: ${{ runner.temp }}/codeql-scan-results-*.csv
