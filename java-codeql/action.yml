@@ -72,16 +72,8 @@ runs:
       env:
         RUNNER_TEMP: ${{ runner.temp }}
 
-    - name: Upload CodeQL CSV (Java)
-      if: contains(inputs.languages, 'java')
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: codeql-scan-results-java
-        path: ${{ runner.temp }}/codeql-scan-results-java.csv
-
-    - name: Upload CodeQL CSV (Actions)
-      if: contains(inputs.languages, 'actions')
-      uses: actions/upload-artifact@v4
-      with:
-        name: codeql-scan-results-actions
-        path: ${{ runner.temp }}/codeql-scan-results-actions.csv
+        name: codeql-scan-results
+        path: ${{ runner.temp }}/codeql-scan-results-*.csv
