@@ -27,3 +27,31 @@ runs:
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
+
+    - name: Generate CodeQL Results CSV
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        # Support both comma and space separated input
+        normalized_langs=$(echo "${{ inputs.languages }}" | tr ',' ' ')
+        set -x
+        for language in $normalized_langs; do
+          database_path="$temp/codeql-scan-results-$language.csv"
+          database_dir="$database_base/$language"
+          echo "Generating CodeQL Results CSV for $language at $database_path"
+          if [[ ! -v codeql ]]; then
+            $(realpath $RUNNER_TOOL_CACHE/CodeQL/*/x64/codeql/codeql | head -n 1) database interpret-results "$database_dir" --format=csv --output="$database_path"
+          else
+            codeql database interpret-results "$database_dir" --format=csv --output="$database_path"
+          fi
+        done
+      env:
+        temp: ${{ runner.temp }}
+        database_base: ${{ runner.temp }}/codeql_databases
+
+      - name: Upload Artifact
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-scan-results
+          path: ${{ runner.temp }}/codeql-scan-results-*.csv
