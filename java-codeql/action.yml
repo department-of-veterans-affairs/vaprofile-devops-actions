@@ -43,6 +43,14 @@ runs:
         fi
         
         for db_dir in "$DB_BASE"/*; do
+          # Skip non-directories
+          [[ -d "$db_dir" ]] || continue
+        
+          # Skip non-CodeQL databases
+          if [[ ! -f "$db_dir/dbinfo.json" ]]; then
+            echo "Skipping non-CodeQL directory: $db_dir"
+            continue
+          fi
           language="$(basename "$db_dir")"
           output="${RUNNER_TEMP}/codeql-scan-results-${language}.csv"
         
