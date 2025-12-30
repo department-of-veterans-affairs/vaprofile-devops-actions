@@ -25,8 +25,15 @@ runs:
       if: ${{ inputs.build-mode == '' || inputs.build-mode == 'none' }}
       uses: github/codeql-action/autobuild@v4
 
-    - name: Perform CodeQL Analysis
+    - name: Perform CodeQL Analysis (Java)
       uses: github/codeql-action/analyze@v4
+      with:
+        category: ois-java
+
+    - name: Perform CodeQL Analysis (Actions)
+      uses: github/codeql-action/analyze@v4
+      with:
+        category: ois-actions
 
     - name: Generate CodeQL Results CSV
       shell: bash
