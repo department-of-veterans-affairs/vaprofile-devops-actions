@@ -4,6 +4,9 @@ inputs:
   language:
     description: "Language to analyze (java, actions)"
     required: true
+  maven-settings-xml:
+    description: "Maven settings.xml content"
+    required: false
 
 runs:
   using: "composite"
@@ -39,7 +42,7 @@ runs:
       shell: bash
       run: |
         mkdir -p ~/.m2
-        echo "${{ secrets.MAVEN_SETTINGS_XML }}" > ~/.m2/settings.xml
+        echo "${{ inputs.maven-settings-xml }}" > ~/.m2/settings.xml
         echo "MAVEN_CONFIG=--settings $HOME/.m2/settings.xml" >> $GITHUB_ENV
 
     - name: Verify Java & Maven
