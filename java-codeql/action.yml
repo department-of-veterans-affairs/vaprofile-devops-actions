@@ -1,79 +1,90 @@
 name: "Auto CodeQL Analysis"
 description: "Security Code Scanning with Auto Mode CodeQL"
 inputs:
-  languages:
-    description: 'Languages to analyze (comma-separated or space-separated, optional)'
-    required: false
-    default: 'java,actions'
-  build-mode:
-    description: 'Build mode for CodeQL (optional, defaults to auto)'
-    required: false
-    default: none
+  language:
+    description: "Language to analyze (java, actions)"
+    required: true
+
 runs:
   using: "composite"
   steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Set up Corretto JDK
+      if: inputs.language == 'java'
+      uses: actions/setup-java@v4
+      with:
+        distribution: corretto
+        java-version: "21"
+
+    - name: Set up Maven
+      if: inputs.language == 'java'
+      uses: stCarolas/setup-maven@v4
+      with:
+        maven-version: "3.9.9"
+
+    - name: Cache Maven repository
+      if: inputs.language == 'java'
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2/repository
+        key: >
+          ${{ runner.os }}-jdk21-corretto-maven3.9.9-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-jdk21-corretto-maven3.9.9-
+
+    - name: Configure Maven settings.xml
+      if: inputs.language == 'java'
+      shell: bash
+      run: |
+        mkdir -p ~/.m2
+        echo "${{ secrets.MAVEN_SETTINGS_XML }}" > ~/.m2/settings.xml
+        echo "MAVEN_CONFIG=--settings $HOME/.m2/settings.xml" >> $GITHUB_ENV
+
+    - name: Verify Java & Maven
+      if: inputs.language == 'java'
+      shell: bash
+      run: |
+        java -version
+        mvn -v
+
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v4
       with:
-        languages: ${{ inputs.languages }}
-        build-mode: ${{ inputs.build-mode }}
+        languages: ${{ inputs.language }}
 
-    - name: Autobuild (if default build-mode)
-      if: ${{ inputs.build-mode == '' || inputs.build-mode == 'none' }}
+    - name: Autobuild
+      if: inputs.language == 'java'
       uses: github/codeql-action/autobuild@v4
 
-    - name: Perform CodeQL Analysis (Java)
+    - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
       with:
-        category: ois-java
-
-    - name: Perform CodeQL Analysis (Actions)
-      uses: github/codeql-action/analyze@v4
-      with:
-        category: ois-actions
+        category: "/ois-${{ inputs.language }}"
 
     - name: Generate CodeQL Results CSV
       shell: bash
       run: |
         set -euo pipefail
-        set -x
-        
+
         CODEQL_BIN="$(ls $RUNNER_TOOL_CACHE/CodeQL/*/x64/codeql/codeql | head -n 1)"
         DB_BASE="${RUNNER_TEMP}/codeql_databases"
-        
-        if [[ ! -d "$DB_BASE" ]]; then
-          echo "No CodeQL databases found at $DB_BASE"
+        db_dir="$DB_BASE/${{ inputs.language }}"
+        output="${RUNNER_TEMP}/codeql-scan-results-${{ inputs.language }}.csv"
+
+        if [[ ! -d "$db_dir" ]]; then
+          echo "CodeQL database not found for ${{ inputs.language }}"
           exit 1
         fi
-        
-        # Normalize input languages: comma-separated or space-separated → space-separated
-        INPUT_LANGS="$(echo "${{ inputs.languages }}" | tr ',' ' ')"
-        
-        for language in $INPUT_LANGS; do
-          db_dir="$DB_BASE/$language"
-          output="${RUNNER_TEMP}/codeql-scan-results-${language}.csv"
-        
-          if [[ ! -d "$db_dir" ]]; then
-            echo "Skipping $language: database directory not found at $db_dir"
-            continue
-          fi
-        
-          echo "Generating CSV for language: $language"
-          echo "Using database: $db_dir"
-        
-          "$CODEQL_BIN" database interpret-results \
-            "$db_dir" \
-            --format=csv \
-            --output="$output"
-        done
-      env:
-        RUNNER_TEMP: ${{ runner.temp }}
 
-    - name: Upload Artifact
+        "$CODEQL_BIN" database interpret-results \
+          "$db_dir" \
+          --format=csv \
+          --output="$output"
+
+    - name: Upload CodeQL CSV Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: codeql-scan-results
-        path: ${{ runner.temp }}/codeql-scan-results-*.csv
+        name: codeql-scan-results-${{ inputs.language }}
+        path: ${{ runner.temp }}/codeql-scan-results-${{ inputs.language }}.csv
