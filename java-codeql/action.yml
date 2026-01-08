@@ -1,63 +1,93 @@
-name: CodeQL
-description: GitHub Advanced Security Code Scanning with CodeQL
+name: "Auto CodeQL Analysis"
+description: "Security Code Scanning with Auto Mode CodeQL"
 inputs:
-  path:
-    description: The path to the working directory
-    required: false
-    default: '.'
-  upload_db:
-    description: Upload the CodeQL database to GitHub
-    required: false
-    default: 'false'
-  java_version:
-    description: Version of Java to use
+  language:
+    description: "Language to analyze (java, actions)"
     required: true
-    default: '21'
-  maven_version:
-    description: Version of Maven to use
-    required: true
-    default: '3.9.7'
+  maven-settings-xml:
+    description: "Maven settings.xml content"
+    required: false
 
 runs:
-  using: composite
+  using: "composite"
   steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    - name: Setup Java
-      id: java
-      uses: actions/setup-java@v3
+    - name: Set up Corretto JDK
+      if: inputs.language == 'java'
+      uses: actions/setup-java@v4
       with:
-        overwrite-settings: false
-        java-version: ${{ inputs.java_version }}
         distribution: corretto
+        java-version: "21"
 
-    # Replace the default Java truststore with one that contains the VA CA certs
-    - name: Setup Java Truststore
-      shell: bash
-      run: cp -f /etc/ssl/cacerts ${{ steps.java.outputs.path }}/lib/security/cacerts
-        
+    - name: Set up Maven
+      if: inputs.language == 'java'
+      uses: stCarolas/setup-maven@v4
+      with:
+        maven-version: "3.9.9"
 
-    - uses: actions/cache@v3
+    - name: Cache Maven repository
+      if: inputs.language == 'java'
+      uses: actions/cache@v4
       with:
         path: ~/.m2/repository
-        key: ${{ runner.os }}-jdk${{ inputs.java_version }}-corretto-maven${{ inputs.maven_version }}-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-jdk${{ inputs.java_version }}-corretto-maven${{ inputs.maven_version }}-
+        key: >
+          ${{ runner.os }}-jdk21-corretto-maven3.9.9-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-jdk21-corretto-maven3.9.9-
 
-    - uses: stCarolas/setup-maven@v4.5
-      with:
-        maven-version: ${{ inputs.maven_version }}
-        
-    - name: Run Code Scanning (Java)
-      uses: department-of-veterans-affairs/codeql-tools/codeql-analysis@main
-      with:
-        language: java
-        upload_db: ${{ inputs.upload_db }}
-        path: ${{ inputs.path }}
+    - name: Configure Maven settings.xml
+      if: inputs.language == 'java'
+      shell: bash
+      run: |
+        mkdir -p ~/.m2
+        echo "${{ inputs.maven-settings-xml }}" > ~/.m2/settings.xml
+        echo "MAVEN_CONFIG=--settings $HOME/.m2/settings.xml" >> $GITHUB_ENV
 
-    - name: Run Code Scanning (Actions)
-      uses: department-of-veterans-affairs/codeql-tools/codeql-analysis@main
+    - name: Verify Java & Maven
+      if: inputs.language == 'java'
+      shell: bash
+      run: |
+        java -version
+        mvn -v
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v4
       with:
-        language: actions
-        upload_db: ${{ inputs.upload_db }}
-        path: ${{ inputs.path }}
+        languages: ${{ inputs.language }}
+
+    - name: Autobuild
+      if: inputs.language == 'java'
+      uses: github/codeql-action/autobuild@v4
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v4
+      with:
+        category: "ois-${{ inputs.language }}"
+
+    - name: Generate CodeQL Results CSV
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        CODEQL_BIN="$(ls $RUNNER_TOOL_CACHE/CodeQL/*/x64/codeql/codeql | head -n 1)"
+        DB_BASE="${RUNNER_TEMP}/codeql_databases"
+        db_dir="$DB_BASE/${{ inputs.language }}"
+        output="${RUNNER_TEMP}/codeql-scan-results-${{ inputs.language }}.csv"
+
+        if [[ ! -d "$db_dir" ]]; then
+          echo "CodeQL database not found for ${{ inputs.language }}"
+          exit 1
+        fi
+
+        "$CODEQL_BIN" database interpret-results \
+          "$db_dir" \
+          --format=csv \
+          --output="$output"
+
+    - name: Upload CodeQL CSV Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: codeql-scan-results-${{ inputs.language }}
+        path: ${{ runner.temp }}/codeql-scan-results-${{ inputs.language }}.csv
